@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import sys
 from typing import TextIO
@@ -33,9 +34,9 @@ from nvitop_exporter.version import __version__
 
 
 def cprint(text: str = '', *, file: TextIO | None = None) -> None:
-    """Print colored text to a file."""
+    """Print a line, applying a bold color to any leading log-level prefix."""
     for prefix, color in (
-        ('INFO: ', 'yellow'),
+        ('INFO: ', 'green'),
         ('WARNING: ', 'yellow'),
         ('ERROR: ', 'red'),
         ('NVML ERROR: ', 'red'),
@@ -46,6 +47,7 @@ def cprint(text: str = '', *, file: TextIO | None = None) -> None:
                 colored(prefix.rstrip(), color=color, attrs=('bold',)),  # type: ignore[arg-type]
                 1,
             )
+            break
     print(text, file=file)
 
 
@@ -54,7 +56,7 @@ def parse_arguments() -> argparse.Namespace:
 
     def posfloat(argstring: str) -> float:
         num = float(argstring)
-        if num <= 0:
+        if not math.isfinite(num) or num <= 0:
             raise ValueError
         return num
 

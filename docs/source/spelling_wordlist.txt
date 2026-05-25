@@ -8,6 +8,8 @@ bg
 bool
 boolean
 bstate
+cafile
+capath
 cli
 cmdline
 colorscheme
@@ -21,11 +23,14 @@ cudadevice
 cudaerror
 cudaxx
 cwd
+deque
 devicesnapshot
 displayables
 divmod
 docstring
 doctest
+downsample
+downsampled
 ecc
 enum
 env
@@ -36,6 +41,7 @@ fallbacks
 fg
 fmt
 func
+gaierror
 getch
 getmouse
 gib
@@ -53,7 +59,10 @@ ints
 ipython
 isinstance
 iterable
+js
+json
 keras
+keyfile
 kib
 kmd
 kwargs
@@ -63,6 +72,7 @@ libcudart
 libnvml
 linters
 lol
+loopback
 lstrip
 maxsize
 memoize
@@ -91,6 +101,7 @@ ot
 pan
 panxuehai
 pci
+pem
 physicaldevice
 pid
 ppid
@@ -104,6 +115,7 @@ pytorch
 redhat
 reentrant
 resourcemetriccollector
+routable
 rss
 rstrip
 rtx
@@ -114,6 +126,7 @@ selectable
 shader
 sm
 smi
+stdlib
 str
 struct
 subclasses
@@ -122,6 +135,7 @@ submodules
 subprocess
 superset
 sys
+systemd
 tcc
 tensorflow
 throughputinfo
@@ -131,11 +145,13 @@ ttc
 tty
 tx
 txt
+udp
 uid
 uids
 unallocated
 uncase
 unicode
+unparsable
 uptime
 utils
 uuid
