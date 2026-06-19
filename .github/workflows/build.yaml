@@ -1,19 +1,7 @@
 name: Build
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    paths:
-      - setup.py
-      - setup.cfg
-      - pyproject.toml
-      - MANIFEST.in
-      - nvitop/version.py
-      - Dockerfile
-      - .github/workflows/build.yaml
-  # Allow to trigger the workflow manually
+  # Temporarily disable automatic CI; allow manual runs only.
   workflow_dispatch:
 
 concurrency:

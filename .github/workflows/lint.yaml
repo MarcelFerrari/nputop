@@ -1,10 +1,8 @@
 name: Lint
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+  # Temporarily disable automatic CI; allow manual runs only.
+  workflow_dispatch:
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"

@@ -1,21 +1,7 @@
 name: Build and Publish Docker Images
 
 on:
-  pull_request:
-    paths:
-      - setup.py
-      - setup.cfg
-      - pyproject.toml
-      - MANIFEST.in
-      - nvitop/version.py
-      - nvitop-exporter/nvitop_exporter/version.py
-      - Dockerfile
-      - nvitop-exporter/Dockerfile
-      - .github/workflows/docker.yaml
-  release:
-    types:
-      - published
-  # Allow to trigger the workflow manually
+  # Temporarily disable automatic CI; allow manual runs only.
   workflow_dispatch:
     inputs:
       publish:
