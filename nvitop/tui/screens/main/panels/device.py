@@ -80,7 +80,6 @@ class DevicePanel(BasePanel):  # pylint: disable=too-many-instance-attributes
             self.height = self.full_height = self.compact_height = 6
 
         self.driver_version: str = Device.driver_version()
-        self.cuda_driver_version: str = Device.cuda_driver_version()
 
         self._snapshot_buffer: list[Snapshot] = []
         self._snapshots: list[Snapshot] = []
@@ -95,9 +94,9 @@ class DevicePanel(BasePanel):  # pylint: disable=too-many-instance-attributes
 
         self.formats_compact: list[str] = [
             (
-                '│ {physical_index:>3} {fan_speed_string:>3} {temperature_string:>4} '
-                '{performance_state:<3}{power_status:>13} '
-                '│ {memory_usage:>20} │ {gpu_utilization_string:>7}  {compute_mode:>11} │'
+                '│ {physical_index:>3} {hbm_temperature_string:>3} {temperature_string:>4} '
+                '{performance_state:>4}{power_status:>12} '
+                '│ {memory_usage:>20} │ {gpu_utilization_string:>7} {boot_status:>6} {compute_mode:>5} │'
             ),
         ]
         self.formats_full: list[str] = [
@@ -106,8 +105,8 @@ class DevicePanel(BasePanel):  # pylint: disable=too-many-instance-attributes
                 '│ {bus_id:<16} {display_active:>3} │ {total_volatile_uncorrected_ecc_errors:>20} │'
             ),
             (
-                '│ {fan_speed_string:>3}  {temperature_string:>4}  {performance_state:^4} {power_status:>13} '
-                '│ {memory_usage:>20} │ {gpu_utilization_string:>7}  {compute_mode:>11} │'
+                '│ {hbm_temperature_string:>3}  {temperature_string:>4}  {performance_state:^4} {power_status:>13} '
+                '│ {memory_usage:>20} │ {gpu_utilization_string:>7} {boot_status:>6} {compute_mode:>5} │'
             ),
         ]
 
@@ -225,9 +224,8 @@ class DevicePanel(BasePanel):  # pylint: disable=too-many-instance-attributes
             compact = self.compact
 
         version_infos = [
-            'NVITOP {}'.format(__version__.partition('+')[0]),
+            'NPUTOP {}'.format(__version__.partition('+')[0]),
             f'Driver Version: {self.driver_version}',
-            f'CUDA Driver Version: {self.cuda_driver_version}',
         ]
         if sum(len(v) for v in version_infos) % 2 == 0:
             version_infos[0] += ' '
@@ -243,13 +241,13 @@ class DevicePanel(BasePanel):  # pylint: disable=too-many-instance-attributes
             )
             if compact:
                 header.append(
-                    '│ GPU Fan Temp Perf Pwr:Usg/Cap │         Memory-Usage │ GPU-Util  Compute M. │',
+                    '│ NPU HBM Temp Freq  Pwr:Usage  │         Memory-Usage │ NPU-Util Status Mode │',
                 )
             else:
                 header.extend(
                     (
-                        '│ GPU  Name        Persistence-M│ Bus-Id        Disp.A │ Volatile Uncorr. ECC │',
-                        '│ Fan  Temp  Perf  Pwr:Usage/Cap│         Memory-Usage │ GPU-Util  Compute M. │',
+                        '│ NPU  Name                Stat │ Bus-Id           LID │ Health / ECC         │',
+                        '│ HBM  Temp  Freq    Pwr:Usage  │         Memory-Usage │ NPU-Util Status Mode │',
                     ),
                 )
                 if IS_WINDOWS:
@@ -456,10 +454,10 @@ class DevicePanel(BasePanel):  # pylint: disable=too-many-instance-attributes
                                 (
                                     self.x + 80 + left_width + 3,
                                     right_width,
-                                    'PWR',
-                                    device.power_utilization,
-                                    device.power_display_color,
-                                    f'{device.power_status.partition(" / ")[0]}',
+                                    'AI',
+                                    device.ai_core_utilization,
+                                    device.gpu_display_color,
+                                    'Cube',
                                 ),
                             ],
                         ]
@@ -635,11 +633,11 @@ class DevicePanel(BasePanel):  # pylint: disable=too-many-instance-attributes
                                         f'@ {device.clock_infos.sm}MHz',
                                     ),
                                     (
-                                        'PWR',
-                                        device.power_utilization,
-                                        device.power_display_color,
+                                        'AI',
+                                        device.ai_core_utilization,
+                                        device.gpu_display_color,
                                         right_width,
-                                        f'{device.power_status.partition(" / ")[0]}',
+                                        'Cube',
                                     ),
                                 ],
                             ]

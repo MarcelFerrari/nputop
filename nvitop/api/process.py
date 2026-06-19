@@ -30,7 +30,7 @@ from types import FunctionType
 from typing import TYPE_CHECKING, Any
 from weakref import WeakValueDictionary
 
-from nvitop.api import host, libnvml
+from nvitop.api import host
 from nvitop.api.utils import (
     NA,
     UINT_MAX,
@@ -640,8 +640,10 @@ class GpuProcess:  # pylint: disable=too-many-instance-attributes,too-many-publi
         memory_total = self.device.memory_total()
         gpu_memory_percent = NA
         if (
-            libnvml.nvmlCheckReturn(memory_used, int)
-            and libnvml.nvmlCheckReturn(memory_total, int)
+            memory_used is not NA
+            and isinstance(memory_used, int)
+            and memory_total is not NA
+            and isinstance(memory_total, int)
             and memory_total > 0
         ):
             gpu_memory_percent = round(100.0 * memory_used / memory_total, 1)

@@ -340,7 +340,7 @@ class TreeViewScreen(BaseSelectableScreen):  # pylint: disable=too-many-instance
             snapshot.prefix = node.prefix
             snapshot.devices = (
                 (
-                    'GPU '
+                    'NPU '
                     + ','.join(
                         dev.display_index
                         for dev in sorted(node.devices, key=lambda device: device.tuple_index)
@@ -442,7 +442,7 @@ class TreeViewScreen(BaseSelectableScreen):  # pylint: disable=too-many-instance
             self.addstr(
                 self.y + 1,
                 self.x,
-                'No running GPU processes found{}.'.format(' (in WSL)' if IS_WSL else ''),
+                'No running NPU processes found{}.'.format(' (in WSL)' if IS_WSL else ''),
             )
             return
 

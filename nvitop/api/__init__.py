@@ -21,9 +21,7 @@ from nvitop.api import (
     collector,
     device,
     host,
-    libcuda,
-    libcudart,
-    libnvml,
+    libdcmi,
     process,
     termcolor,
     utils,
@@ -39,7 +37,7 @@ from nvitop.api.device import (
     normalize_cuda_visible_devices,
     parse_cuda_visible_devices,
 )
-from nvitop.api.libnvml import NVMLError, nvmlCheckReturn
+from nvitop.api.libdcmi import DCMIError, DCMILibraryNotFound, DCMINotSupported, dcmiCheckReturn
 from nvitop.api.process import GpuProcess, HostProcess, command_join
 from nvitop.api.utils import (  # explicitly export these to appease mypy
     NA,
@@ -66,11 +64,11 @@ from nvitop.api.utils import (  # explicitly export these to appease mypy
 
 
 __all__ = [  # noqa: RUF022
-    'NVMLError',
-    'nvmlCheckReturn',
-    'libnvml',
-    'libcuda',
-    'libcudart',
+    'DCMIError',
+    'DCMILibraryNotFound',
+    'DCMINotSupported',
+    'dcmiCheckReturn',
+    'libdcmi',
     # nvitop.api.device
     'Device',
     'PhysicalDevice',

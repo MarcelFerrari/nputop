@@ -27,7 +27,7 @@ from typing import TextIO
 from prometheus_client import start_wsgi_server
 
 import nvitop
-from nvitop import Device, colored, libnvml
+from nvitop import DCMIError, DCMILibraryNotFound, Device, colored
 from nvitop_exporter.exporter import PrometheusExporter
 from nvitop_exporter.utils import get_ip_address
 from nvitop_exporter.version import __version__
@@ -39,6 +39,7 @@ def cprint(text: str = '', *, file: TextIO | None = None) -> None:
         ('INFO: ', 'green'),
         ('WARNING: ', 'yellow'),
         ('ERROR: ', 'red'),
+        ('DCMI ERROR: ', 'red'),
         ('NVML ERROR: ', 'red'),
     ):
         if text.startswith(prefix):
@@ -209,14 +210,14 @@ def main() -> int:  # pylint: disable=too-many-locals,too-many-statements
 
     try:
         device_count = Device.count()
-    except libnvml.NVMLError_LibraryNotFound:
+    except DCMILibraryNotFound:
         return 1
-    except libnvml.NVMLError as ex:
-        cprint(f'NVML ERROR: {ex}', file=sys.stderr)
+    except DCMIError as ex:
+        cprint(f'DCMI ERROR: {ex}', file=sys.stderr)
         return 1
 
     if device_count == 0:
-        cprint('NVML ERROR: No NVIDIA devices found.', file=sys.stderr)
+        cprint('DCMI ERROR: No Huawei Ascend NPUs found.', file=sys.stderr)
         return 1
 
     physical_devices = Device.from_indices(range(device_count))
@@ -247,11 +248,11 @@ def main() -> int:  # pylint: disable=too-many-locals,too-many-statements
         if device.is_mig_device():
             name = name.rpartition(' ')[-1]
             cprint(
-                f'INFO:   MIG {name:<11} Device {device.mig_index:>2d}: (UUID: {uuid})',
+                f'INFO:   MIG {name:<11} Device {getattr(device, "mig_index", 0):>2d}: (UUID: {uuid})',
                 file=sys.stderr,
             )
         else:
-            cprint(f'INFO: GPU {device.index}: {name} (UUID: {uuid})', file=sys.stderr)
+            cprint(f'INFO: NPU {device.index}: {name} (UUID: {uuid})', file=sys.stderr)
 
     exporter = PrometheusExporter(devices, hostname=args.hostname, interval=args.interval)
 

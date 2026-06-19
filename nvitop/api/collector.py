@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, ClassVar, NamedTuple, TypeVar
 from weakref import WeakSet
 
 from nvitop.api import host
-from nvitop.api.device import CudaDevice, Device
+from nvitop.api.device import Device
 from nvitop.api.process import GpuProcess, HostProcess
 from nvitop.api.utils import GiB, MiB, Snapshot
 
@@ -183,10 +183,7 @@ def take_snapshots(
             itertools.chain.from_iterable(device.processes().values() for device in leaf_devices),
         )
 
-    device_snapshots: list[Snapshot] = [
-        device.as_snapshot()
-        for device in devices  # type: ignore[union-attr]
-    ]
+    device_snapshots: list[Snapshot] = [device.as_snapshot() for device in devices]
     gpu_process_snapshots = GpuProcess.take_snapshots(gpu_processes, failsafe=True)
 
     return SnapshotResult(device_snapshots, gpu_process_snapshots)
@@ -741,9 +738,7 @@ class ResourceMetricCollector:  # pylint: disable=too-many-instance-attributes
 
         device_identifiers = {}
         for device_snapshot in device_snapshots:
-            identifier = f'gpu:{device_snapshot.index}'
-            if isinstance(device_snapshot.real, CudaDevice):
-                identifier = f'cuda:{device_snapshot.cuda_index} ({identifier})'
+            identifier = f'npu:{device_snapshot.index}'
             device_identifiers[device_snapshot.real] = identifier
 
             for attr, name, unit in self.DEVICE_METRICS:

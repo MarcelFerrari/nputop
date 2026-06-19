@@ -149,7 +149,7 @@ class HostPanel(BasePanel):  # pylint: disable=too-many-instance-attributes
                 baseline=0.0,
                 upperbound=100.0,
                 dynamic_bound=False,
-                format=lambda x: f'GPU {device.display_index} MEM: {percentage(x)}',
+                format=lambda x: f'NPU {device.display_index} MEM: {percentage(x)}',
             )(device.memory_percent)
             device.gpu_utilization = BufferedHistoryGraph(  # type: ignore[method-assign]
                 interval=1.0,
@@ -159,7 +159,7 @@ class HostPanel(BasePanel):  # pylint: disable=too-many-instance-attributes
                 baseline=0.0,
                 upperbound=100.0,
                 dynamic_bound=False,
-                format=lambda x: f'GPU {device.display_index} UTL: {percentage(x)}',
+                format=lambda x: f'NPU {device.display_index} UTL: {percentage(x)}',
             )(device.gpu_utilization)
 
         for device in self.devices:
@@ -174,7 +174,7 @@ class HostPanel(BasePanel):  # pylint: disable=too-many-instance-attributes
             baseline=0.0,
             upperbound=100.0,
             dynamic_bound=False,
-            format=lambda x: f'{prefix}GPU MEM: {percentage(x)}',
+            format=lambda x: f'{prefix}NPU MEM: {percentage(x)}',
         )
         self.average_gpu_utilization = BufferedHistoryGraph(
             interval=1.0,
@@ -184,7 +184,7 @@ class HostPanel(BasePanel):  # pylint: disable=too-many-instance-attributes
             baseline=0.0,
             upperbound=100.0,
             dynamic_bound=False,
-            format=lambda x: f'{prefix}GPU UTL: {percentage(x)}',
+            format=lambda x: f'{prefix}NPU UTL: {percentage(x)}',
         )
 
     @classmethod

@@ -1,7 +1,7 @@
 # This file is part of nvitop, the interactive NVIDIA-GPU process viewer.
 # License: GNU GPL version 3.
 
-"""The interactive NVIDIA-GPU process viewer."""
+"""The interactive Huawei Ascend NPU process viewer."""
 
 import sys
 

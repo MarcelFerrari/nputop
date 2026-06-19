@@ -8,9 +8,9 @@ from __future__ import annotations
 import enum
 from typing import Any, ClassVar, Literal
 
-from nvitop.api import NA, NaType, Snapshot, libnvml, ttl_cache, utilization2string
+from nvitop.api import NA, NaType, Snapshot, dcmiCheckReturn, ttl_cache, utilization2string
+from nvitop.api import Device as DeviceBase
 from nvitop.api import MigDevice as MigDeviceBase
-from nvitop.api import PhysicalDevice as DeviceBase
 from nvitop.tui.library.process import GpuProcess, GpuProcessBase
 
 
@@ -47,9 +47,20 @@ class Device(DeviceBase):  # pylint: disable=too-many-public-methods
         'memory_total_human',
         'memory_percent',
         'memory_usage',
+        'component_utilization_rates',
         'gpu_utilization',
+        'npu_utilization',
+        'ai_core_utilization',
+        'vector_core_utilization',
+        'ai_cpu_utilization',
+        'control_cpu_utilization',
         'memory_utilization',
+        'memory_bandwidth_utilization',
+        'on_chip_memory_utilization',
+        'on_chip_memory_bandwidth_utilization',
+        'ddr_utilization',
         'fan_speed',
+        'hbm_temperature',
         'temperature',
         'power_usage',
         'power_limit',
@@ -58,6 +69,11 @@ class Device(DeviceBase):  # pylint: disable=too-many-public-methods
         'current_driver_model',
         'persistence_mode',
         'performance_state',
+        'health_status',
+        'ecc_summary',
+        'health_ecc_summary',
+        'boot_status',
+        'work_mode',
         'total_volatile_uncorrected_ecc_errors',
         'compute_mode',
         'mig_mode',
@@ -66,7 +82,17 @@ class Device(DeviceBase):  # pylint: disable=too-many-public-methods
         'memory_percent_string',
         'memory_utilization_string',
         'gpu_utilization_string',
+        'npu_utilization_string',
+        'ai_core_utilization_string',
+        'vector_core_utilization_string',
+        'ai_cpu_utilization_string',
+        'control_cpu_utilization_string',
+        'memory_bandwidth_utilization_string',
+        'on_chip_memory_utilization_string',
+        'on_chip_memory_bandwidth_utilization_string',
+        'ddr_utilization_string',
         'fan_speed_string',
+        'hbm_temperature_string',
         'temperature_string',
         'memory_loading_intensity',
         'memory_display_color',
@@ -102,26 +128,21 @@ class Device(DeviceBase):  # pylint: disable=too-many-public-methods
         return self._snapshot
 
     def mig_devices(self) -> list[MigDevice]:  # type: ignore[override]
-        mig_devices = []
-
-        if self.is_mig_mode_enabled():
-            for mig_index in range(self.max_mig_device_count()):
-                try:
-                    mig_device = MigDevice(index=(self.index, mig_index))
-                except libnvml.NVMLError:  # noqa: PERF203
-                    break
-                else:
-                    mig_devices.append(mig_device)
-
-        return mig_devices
+        return []
 
     fan_speed = ttl_cache(ttl=5.0)(DeviceBase.fan_speed)
+    hbm_temperature = ttl_cache(ttl=5.0)(DeviceBase.hbm_temperature)
     temperature = ttl_cache(ttl=5.0)(DeviceBase.temperature)
     display_active = ttl_cache(ttl=5.0)(DeviceBase.display_active)
     display_mode = ttl_cache(ttl=5.0)(DeviceBase.display_mode)
     current_driver_model = ttl_cache(ttl=5.0)(DeviceBase.current_driver_model)
     persistence_mode = ttl_cache(ttl=5.0)(DeviceBase.persistence_mode)
     performance_state = ttl_cache(ttl=5.0)(DeviceBase.performance_state)
+    health_status = ttl_cache(ttl=5.0)(DeviceBase.health_status)
+    ecc_summary = ttl_cache(ttl=5.0)(DeviceBase.ecc_summary)
+    health_ecc_summary = ttl_cache(ttl=5.0)(DeviceBase.health_ecc_summary)
+    boot_status = ttl_cache(ttl=5.0)(DeviceBase.boot_status)
+    work_mode = ttl_cache(ttl=5.0)(DeviceBase.work_mode)
     total_volatile_uncorrected_ecc_errors = ttl_cache(ttl=5.0)(
         DeviceBase.total_volatile_uncorrected_ecc_errors,
     )
@@ -130,10 +151,10 @@ class Device(DeviceBase):  # pylint: disable=too-many-public-methods
 
     def power_utilization(self) -> float | NaType:  # in percentage
         power_limit = self.power_limit()
-        if not libnvml.nvmlCheckReturn(power_limit, int) or power_limit == 0:
+        if not dcmiCheckReturn(power_limit, int) or power_limit == 0:
             return NA
         power_usage = self.power_usage()
-        if not libnvml.nvmlCheckReturn(power_usage, int):
+        if not dcmiCheckReturn(power_usage, int):
             return NA
         return round(100.0 * power_usage / power_limit, 1)
 
@@ -146,12 +167,43 @@ class Device(DeviceBase):  # pylint: disable=too-many-public-methods
     def gpu_utilization_string(self) -> str:  # in percentage
         return utilization2string(self.gpu_utilization())
 
+    def npu_utilization_string(self) -> str:  # in percentage
+        return utilization2string(self.npu_utilization())
+
+    def ai_core_utilization_string(self) -> str:  # in percentage
+        return utilization2string(self.ai_core_utilization())
+
+    def vector_core_utilization_string(self) -> str:  # in percentage
+        return utilization2string(self.vector_core_utilization())
+
+    def ai_cpu_utilization_string(self) -> str:  # in percentage
+        return utilization2string(self.ai_cpu_utilization())
+
+    def control_cpu_utilization_string(self) -> str:  # in percentage
+        return utilization2string(self.control_cpu_utilization())
+
+    def memory_bandwidth_utilization_string(self) -> str:  # in percentage
+        return utilization2string(self.memory_bandwidth_utilization())
+
+    def on_chip_memory_utilization_string(self) -> str:  # in percentage
+        return utilization2string(self.on_chip_memory_utilization())
+
+    def on_chip_memory_bandwidth_utilization_string(self) -> str:  # in percentage
+        return utilization2string(self.on_chip_memory_bandwidth_utilization())
+
+    def ddr_utilization_string(self) -> str:  # in percentage
+        return utilization2string(self.ddr_utilization())
+
     def fan_speed_string(self) -> str:  # in percentage
         return utilization2string(self.fan_speed())
 
+    def hbm_temperature_string(self) -> str:  # in Celsius
+        temperature = self.hbm_temperature()
+        return f'{temperature}C' if dcmiCheckReturn(temperature, int) else NA
+
     def temperature_string(self) -> str:  # in Celsius
         temperature = self.temperature()
-        return f'{temperature}C' if libnvml.nvmlCheckReturn(temperature, int) else NA
+        return f'{temperature}C' if dcmiCheckReturn(temperature, int) else NA
 
     def memory_loading_intensity(self) -> LoadingIntensity:
         return self.loading_intensity_of(self.memory_percent(), type='memory')
@@ -221,7 +273,7 @@ class Device(DeviceBase):  # pylint: disable=too-many-public-methods
         return Device.loading_intensity_of(utilization, type=type).color()
 
 
-class MigDevice(MigDeviceBase, Device):  # type: ignore[misc]
+class MigDevice(MigDeviceBase, Device):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 

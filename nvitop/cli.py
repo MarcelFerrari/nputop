@@ -1,32 +1,33 @@
 # This file is part of nvitop, the interactive NVIDIA-GPU process viewer.
 # License: GNU GPL version 3.
 
-"""The interactive NVIDIA-GPU process viewer."""
+"""The interactive Huawei Ascend NPU process viewer."""
 
 import argparse
 import curses
 import math
 import os
 import sys
-import textwrap
 
-from nvitop.api import HostProcess, libnvml
+from nvitop.api import DCMIError, DCMILibraryNotFound, HostProcess
 from nvitop.tui import TUI, USERNAME, Device, colored, libcurses, set_color, setlocale_utf8
 from nvitop.version import __version__
 
 
 TTY = sys.stdin.isatty() and sys.stdout.isatty()
-NVITOP_MONITOR_MODE = set(
+NPUTOP_MONITOR_MODE = set(
     map(
         str.strip,
-        os.environ.get('NVITOP_MONITOR_MODE', '').lower().split(','),
+        (os.environ.get('NPUTOP_MONITOR_MODE') or os.environ.get('NVITOP_MONITOR_MODE', ''))
+        .lower()
+        .split(','),
     ),
 )
 
 
 # pylint: disable=too-many-branches,too-many-statements
 def parse_arguments() -> argparse.Namespace:
-    """Parse command-line arguments for ``nvitop``."""
+    """Parse command-line arguments for ``nputop``."""
     coloring_rules = '{} < th1 %% <= {} < th2 %% <= {}'.format(
         colored('light', 'green'),
         colored('moderate', 'yellow'),
@@ -42,8 +43,8 @@ def parse_arguments() -> argparse.Namespace:
     posfloat.__name__ = 'positive float'
 
     parser = argparse.ArgumentParser(
-        prog='nvitop',
-        description='An interactive NVIDIA-GPU process viewer.',
+        prog='nputop',
+        description='An interactive Huawei Ascend NPU process viewer.',
         formatter_class=argparse.RawTextHelpFormatter,
         add_help=False,
     )
@@ -82,7 +83,7 @@ def parse_arguments() -> argparse.Namespace:
         choices=['auto', 'full', 'compact'],
         help=(
             'Run as a resource monitor. Continuously report query data and handle user inputs.\n'
-            'If the argument is omitted, the value from `NVITOP_MONITOR_MODE` will be used.\n'
+            'If the argument is omitted, the value from `NPUTOP_MONITOR_MODE` will be used.\n'
             '(default fallback mode: auto)'
         ),
     )
@@ -109,7 +110,7 @@ def parse_arguments() -> argparse.Namespace:
         action='store_true',
         help=(
             'Disable all system and process changing features (e.g., terminating processes).\n'
-            'Set variable `NVITOP_MONITOR_MODE="readonly"` for convenience.'
+            'Set variable `NPUTOP_MONITOR_MODE="readonly"` for convenience.'
         ),
     )
 
@@ -120,7 +121,7 @@ def parse_arguments() -> argparse.Namespace:
         action='store_true',
         help=(
             'Use gradient colors to get spectrum-like bar charts.\n'
-            'Set variable `NVITOP_MONITOR_MODE="colorful"` for convenience.\n'
+            'Set variable `NPUTOP_MONITOR_MODE="colorful"` for convenience.\n'
             'This option is only available when the terminal supports 256 colors.\n'
             'You may need to set environment variable `TERM="xterm-256color"`. Note that the\n'
             'terminal multiplexer, such as `tmux`, may override the `TERM` variable.'
@@ -137,21 +138,30 @@ def parse_arguments() -> argparse.Namespace:
         action='store_true',
         help=(
             'Tweak visual results for light theme terminals in monitor mode.\n'
-            'Set variable `NVITOP_MONITOR_MODE="light"` on light terminals for convenience.'
+            'Set variable `NPUTOP_MONITOR_MODE="light"` on light terminals for convenience.'
         ),
     )
     gpu_thresholds = Device.GPU_UTILIZATION_THRESHOLDS
     coloring.add_argument(
-        '--gpu-util-thresh',
+        '--npu-util-thresh',
         type=int,
         nargs=2,
         choices=range(1, 100),
         metavar=('th1', 'th2'),
         help=(
-            'Thresholds of GPU utilization to determine the load intensity.\n'
+            'Thresholds of NPU utilization to determine the load intensity.\n'
             'Coloring rules: {}.\n'
             '( 1 <= th1 < th2 <= 99, defaults: {} {} )'
         ).format(coloring_rules, *gpu_thresholds),
+    )
+    coloring.add_argument(
+        '--gpu-util-thresh',
+        dest='npu_util_thresh',
+        type=int,
+        nargs=2,
+        choices=range(1, 100),
+        metavar=('th1', 'th2'),
+        help=argparse.SUPPRESS,
     )
     memory_thresholds = Device.MEMORY_UTILIZATION_THRESHOLDS
     coloring.add_argument(
@@ -161,7 +171,7 @@ def parse_arguments() -> argparse.Namespace:
         choices=range(1, 100),
         metavar=('th1', 'th2'),
         help=(
-            'Thresholds of GPU memory percent to determine the load intensity.\n'
+            'Thresholds of NPU memory percent to determine the load intensity.\n'
             'Coloring rules: {}.\n'
             '( 1 <= th1 < th2 <= 99, defaults: {} {} )'
         ).format(coloring_rules, *memory_thresholds),
@@ -182,7 +192,7 @@ def parse_arguments() -> argparse.Namespace:
         '-ov',
         dest='only_visible',
         action='store_true',
-        help='Only show devices in the `CUDA_VISIBLE_DEVICES` environment variable.',
+        help=argparse.SUPPRESS,
     )
 
     process_filtering = parser.add_argument_group('process filtering')
@@ -191,28 +201,28 @@ def parse_arguments() -> argparse.Namespace:
         '-c',
         dest='compute',
         action='store_true',
-        help="Only show GPU processes with the compute context. (type: 'C' or 'C+G')",
+        help="Only show NPU processes with the compute context. (type: 'C' or 'C+G')",
     )
     process_filtering.add_argument(
         '--only-compute',
         '-C',
         dest='only_compute',
         action='store_true',
-        help="Only show GPU processes exactly with the compute context. (type: 'C' only)",
+        help="Only show NPU processes exactly with the compute context. (type: 'C' only)",
     )
     process_filtering.add_argument(
         '--graphics',
         '-g',
         dest='graphics',
         action='store_true',
-        help="Only show GPU processes with the graphics context. (type: 'G' or 'C+G')",
+        help=argparse.SUPPRESS,
     )
     process_filtering.add_argument(
         '--only-graphics',
         '-G',
         dest='only_graphics',
         action='store_true',
-        help="Only show GPU processes exactly with the graphics context. (type: 'G' only)",
+        help=argparse.SUPPRESS,
     )
     process_filtering.add_argument(
         '--user',
@@ -242,18 +252,19 @@ def parse_arguments() -> argparse.Namespace:
         )
 
     if not args.colorful:
-        args.colorful = 'colorful' in NVITOP_MONITOR_MODE and 'plain' not in NVITOP_MONITOR_MODE
+        args.colorful = 'colorful' in NPUTOP_MONITOR_MODE and 'plain' not in NPUTOP_MONITOR_MODE
     if not args.light:
-        args.light = 'light' in NVITOP_MONITOR_MODE and 'dark' not in NVITOP_MONITOR_MODE
+        args.light = 'light' in NPUTOP_MONITOR_MODE and 'dark' not in NPUTOP_MONITOR_MODE
     if not args.readonly:
-        args.readonly = 'readonly' in NVITOP_MONITOR_MODE
+        args.readonly = 'readonly' in NPUTOP_MONITOR_MODE
     if args.user is not None and len(args.user) == 0:
         args.user.append(USERNAME)
-    if args.gpu_util_thresh is None:
+    if args.npu_util_thresh is None:
+        thresholds = os.getenv('NPUTOP_NPU_UTILIZATION_THRESHOLDS')
+        if thresholds is None:
+            thresholds = os.getenv('NVITOP_GPU_UTILIZATION_THRESHOLDS', '')
         try:
-            gpu_util_thresh = list(
-                map(int, os.getenv('NVITOP_GPU_UTILIZATION_THRESHOLDS', '').split(',')),
-            )[:2]
+            gpu_util_thresh = list(map(int, thresholds.split(',')))[:2]
         except ValueError:
             pass
         else:
@@ -262,12 +273,13 @@ def parse_arguments() -> argparse.Namespace:
                 and min(gpu_util_thresh) > 0
                 and max(gpu_util_thresh) < 100
             ):
-                args.gpu_util_thresh = gpu_util_thresh
+                args.npu_util_thresh = gpu_util_thresh
     if args.mem_util_thresh is None:
+        thresholds = os.getenv('NPUTOP_MEMORY_UTILIZATION_THRESHOLDS')
+        if thresholds is None:
+            thresholds = os.getenv('NVITOP_MEMORY_UTILIZATION_THRESHOLDS', '')
         try:
-            mem_util_thresh = list(
-                map(int, os.getenv('NVITOP_MEMORY_UTILIZATION_THRESHOLDS', '').split(',')),
-            )[:2]
+            mem_util_thresh = list(map(int, thresholds.split(',')))[:2]
         except ValueError:
             pass
         else:
@@ -283,7 +295,7 @@ def parse_arguments() -> argparse.Namespace:
 
 # pylint: disable-next=too-many-branches,too-many-statements,too-many-locals
 def main() -> int:
-    """Main function for ``nvitop`` CLI."""
+    """Main function for ``nputop`` CLI."""
     args = parse_arguments()
 
     if args.force_color:
@@ -302,7 +314,7 @@ def main() -> int:
         del args.monitor
 
     if hasattr(args, 'monitor') and args.monitor is None:
-        mode = NVITOP_MONITOR_MODE.intersection({'auto', 'full', 'compact'})
+        mode = NPUTOP_MONITOR_MODE.intersection({'auto', 'full', 'compact'})
         mode = 'auto' if len(mode) != 1 else mode.pop()
         args.monitor = mode
 
@@ -311,17 +323,21 @@ def main() -> int:
 
     try:
         device_count = Device.count()
-    except libnvml.NVMLError_LibraryNotFound:
-        return 1
-    except libnvml.NVMLError as ex:
+    except DCMILibraryNotFound as ex:
         print(
-            '{} {}'.format(colored('NVML ERROR:', color='red', attrs=('bold',)), ex),
+            '{} {}'.format(colored('DCMI ERROR:', color='red', attrs=('bold',)), ex),
+            file=sys.stderr,
+        )
+        return 1
+    except DCMIError as ex:
+        print(
+            '{} {}'.format(colored('DCMI ERROR:', color='red', attrs=('bold',)), ex),
             file=sys.stderr,
         )
         return 1
 
-    if args.gpu_util_thresh is not None:
-        Device.GPU_UTILIZATION_THRESHOLDS = tuple(sorted(args.gpu_util_thresh))
+    if args.npu_util_thresh is not None:
+        Device.GPU_UTILIZATION_THRESHOLDS = tuple(sorted(args.npu_util_thresh))
     if args.mem_util_thresh is not None:
         Device.MEMORY_UTILIZATION_THRESHOLDS = tuple(sorted(args.mem_util_thresh))
 
@@ -334,10 +350,7 @@ def main() -> int:
         elif len(invalid_indices) == 1:
             messages.append(f'ERROR: Invalid device index: {next(iter(invalid_indices))}.')
     elif args.only_visible:
-        indices = {
-            index if isinstance(index, int) else index[0]
-            for index in Device.parse_cuda_visible_devices()
-        }
+        indices = set(range(device_count))
     else:
         indices = set(range(device_count))
     devices = Device.from_indices(sorted(indices))
@@ -389,49 +402,12 @@ def main() -> int:
                     and grandparent.name() == 'watch'
                 ):
                     messages.append(
-                        'HINT: You are running `nvitop` under `watch` command. '
-                        'Please try `nvitop -m` directly.',
+                        'HINT: You are running `nputop` under `watch` command. '
+                        'Please try `nputop -m` directly.',
                     )
 
     tui.print()
     tui.destroy()
-
-    if len(libnvml.UNKNOWN_FUNCTIONS) > 0:
-        unknown_function_messages = [
-            (
-                'ERROR: Some FunctionNotFound errors occurred while calling:'
-                if len(libnvml.UNKNOWN_FUNCTIONS) > 1
-                else 'ERROR: A FunctionNotFound error occurred while calling:'
-            ),
-        ]
-        unknown_function_messages.extend(
-            f'    nvmlQuery({(func.__name__ if not isinstance(func, str) else func)!r}, *args, **kwargs)'
-            for func, _ in libnvml.UNKNOWN_FUNCTIONS.values()
-        )
-        unknown_function_messages.append(
-            (
-                'Please verify whether the `nvidia-ml-py` package is compatible with your NVIDIA driver version.\n'
-                'You can check the release history of `nvidia-ml-py` and install the compatible version manually.\n'
-                'See {} for more information.'
-            ).format(
-                colored('https://github.com/XuehaiPan/nvitop#installation', attrs=('underline',)),
-            ),
-        )
-
-    if libnvml._pynvml_installation_corrupted:  # pylint: disable=protected-access
-        message = textwrap.dedent(
-            """
-            WARNING: The `nvidia-ml-py` package is corrupted. Please reinstall it using:
-
-                pip3 install --force-reinstall nvitop nvidia-ml-py
-
-            or install `nvitop` in an isolated environment:
-
-                pip3 install --upgrade uv
-                uvx nvitop
-            """,
-        ).strip()
-        messages.append(f'{message}\n')
 
     if len(messages) > 0:
         for message in messages:

@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""An interactive NVIDIA-GPU process viewer and beyond, the one-stop solution for GPU process management."""
+"""An interactive Huawei Ascend NPU process viewer."""
 
 import sys
 
@@ -25,9 +25,7 @@ from nvitop.api import (
     collector,
     device,
     host,
-    libcuda,
-    libcudart,
-    libnvml,
+    libdcmi,
     process,
     termcolor,
     utils,
@@ -44,17 +42,11 @@ for submodule in (
     collector,
     device,
     host,
-    libcuda,
-    libcudart,
-    libnvml,
+    libdcmi,
     process,
     termcolor,
     utils,
 ):
     sys.modules[f'{__name__}.{submodule.__name__.rpartition(".")[-1]}'] = submodule
-
-# Remove the nvitop.select module from sys.modules
-# Required for `python -m nvitop.select` to work properly
-sys.modules.pop(f'{__name__}.select', None)
 
 del sys

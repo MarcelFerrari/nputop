@@ -39,7 +39,7 @@ class GpuProcess(GpuProcessBase):
     def host_snapshot(self) -> Snapshot:
         host_snapshot = super().host_snapshot()
 
-        if host_snapshot.cpu_percent is NA:
+        if host_snapshot.cpu_percent is None or host_snapshot.cpu_percent is NA:
             host_snapshot.cpu_percent_string = NA
         elif host_snapshot.cpu_percent < 1000.0:
             host_snapshot.cpu_percent_string = f'{host_snapshot.cpu_percent:.1f}%'
@@ -48,7 +48,7 @@ class GpuProcess(GpuProcessBase):
         else:
             host_snapshot.cpu_percent_string = '9999+%'
 
-        if host_snapshot.memory_percent is NA:
+        if host_snapshot.memory_percent is None or host_snapshot.memory_percent is NA:
             host_snapshot.memory_percent_string = NA
         else:
             host_snapshot.memory_percent_string = f'{host_snapshot.memory_percent:.1f}%'
@@ -68,6 +68,10 @@ class GpuProcess(GpuProcessBase):
 
         snapshot.cpu_percent_string = snapshot.host.cpu_percent_string
         snapshot.memory_percent_string = snapshot.host.memory_percent_string
+        if snapshot.running_time_human is None:
+            snapshot.running_time_human = NA
+        if snapshot.host_memory_human is None:
+            snapshot.host_memory_human = NA
 
         if snapshot.is_running:
             snapshot.is_zombie = snapshot.cmdline == ['Zombie Process']

@@ -158,7 +158,7 @@ class EnvironScreen(BaseScreen):  # pylint: disable=too-many-instance-attributes
         self.color_reset()
 
         if isinstance(self.process, GpuProcess):
-            process_type = 'GPU: ' + self.process.type.replace('C', 'Compute').replace(
+            process_type = 'NPU: ' + self.process.type.replace('C', 'Compute').replace(
                 'G',
                 'Graphics',
             )

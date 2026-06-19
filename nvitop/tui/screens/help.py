@@ -21,14 +21,14 @@ if TYPE_CHECKING:
 __all__ = ['HelpScreen']
 
 
-HELP_TEMPLATE = r"""nvitop {} - (C) Xuehai Pan, 2021-2026.
+HELP_TEMPLATE = r"""nputop {} - (C) Xuehai Pan, 2021-2026.
 Released under the GNU GPLv3 License.
 
-GPU Process Type: C: Compute, G: Graphics, X: Mixed.
+NPU Process Type: C: Compute, G: Graphics, X: Mixed.
 
 Device coloring rules by loading intensity:
-  - GPU utilization: light < {:2d}% <= moderate < {:2d}% <= heavy.
-  - GPU-MEM percent: light < {:2d}% <= moderate < {:2d}% <= heavy.
+  - NPU utilization: light < {:2d}% <= moderate < {:2d}% <= heavy.
+  - NPU-MEM percent: light < {:2d}% <= moderate < {:2d}% <= heavy.
 
       a f c: change display mode                h ?: show this help screen
        F5 r: force refresh window                 q: quit
@@ -45,11 +45,11 @@ Device coloring rules by loading intensity:
       Wheel: scroll process list        Shift-Wheel: scroll horizontally
         Tab: scroll process list         Ctrl-Wheel: fast scroll ({}x)
 
-      on oN: sort by GPU-INDEX
-      op oP: sort by PID                      ob oB: sort by %GMBW
+      on oN: sort by NPU-INDEX
+      op oP: sort by PID                      ob oB: sort by %NMBW
       ou oU: sort by USER                     oc oC: sort by %CPU
-      og oG: sort by GPU-MEM                  om oM: sort by %MEM
-      os oS: sort by %SM                      ot oT: sort by TIME
+      og oG: sort by NPU-MEM                  om oM: sort by %MEM
+      os oS: sort by %AI                      ot oT: sort by TIME
         , .: select sort column                   /: invert sort order
 
 Press any key to return.

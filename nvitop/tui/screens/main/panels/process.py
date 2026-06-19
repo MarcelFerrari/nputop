@@ -130,7 +130,7 @@ class ProcessPanel(BaseSelectablePanel):  # pylint: disable=too-many-instance-at
                 ),
                 reverse=True,
                 offset=25,
-                column='GPU-MEM',
+                column='NPU-MEM',
                 previous='username',
                 next='sm_utilization',
                 bind_key='g',
@@ -146,7 +146,7 @@ class ProcessPanel(BaseSelectablePanel):  # pylint: disable=too-many-instance-at
                 ),
                 reverse=True,
                 offset=34,
-                column='SM',
+                column='NPU',
                 previous='gpu_memory',
                 next='gpu_memory_utilization',
                 bind_key='s',
@@ -162,7 +162,7 @@ class ProcessPanel(BaseSelectablePanel):  # pylint: disable=too-many-instance-at
                 ),
                 reverse=True,
                 offset=38,
-                column='GMBW',
+                column='MBW',
                 previous='sm_utilization',
                 next='cpu_percent',
                 bind_key='b',
@@ -365,6 +365,19 @@ class ProcessPanel(BaseSelectablePanel):  # pylint: disable=too-many-instance-at
             snapshots = filter(condition, snapshots)
         snapshots = list(snapshots)
 
+        device_snapshots: dict[tuple[int] | tuple[int, int], Snapshot] = {}
+        for snapshot in snapshots:
+            device_key = snapshot.device.tuple_index
+            try:
+                device_snapshot = device_snapshots[device_key]
+            except KeyError:
+                device_snapshot = device_snapshots[device_key] = snapshot.device.as_snapshot()
+
+            snapshot.gpu_sm_utilization = device_snapshot.npu_utilization
+            snapshot.gpu_sm_utilization_string = device_snapshot.npu_utilization_string
+            snapshot.gpu_memory_utilization = device_snapshot.memory_utilization
+            snapshot.gpu_memory_utilization_string = device_snapshot.memory_utilization_string
+
         time_length = max(4, max((len(p.running_time_human) for p in snapshots), default=4))
         for snapshot in snapshots:
             snapshot.host_info = WideString(
@@ -392,7 +405,7 @@ class ProcessPanel(BaseSelectablePanel):  # pylint: disable=too-many-instance-at
         header = [
             '╒' + '═' * (self.width - 2) + '╕',
             '│ {} │'.format('Processes:'.ljust(self.width - 4)),
-            r'│ GPU     PID      USER  GPU-MEM %SM %GMBW  {} │'.format(
+            r'│ NPU     PID      USER  NPU-MEM NPU% MBW%  {} │'.format(
                 '  '.join(self.host_headers).ljust(self.width - 46),
             ),
             '╞' + '═' * (self.width - 2) + '╡',
@@ -483,7 +496,7 @@ class ProcessPanel(BaseSelectablePanel):  # pylint: disable=too-many-instance-at
                     attr='bold',
                 )
 
-        self.addstr(self.y + 3, self.x + 1, r' GPU     PID      USER  GPU-MEM %SM %GMBW  ')
+        self.addstr(self.y + 3, self.x + 1, r' NPU     PID      USER  NPU-MEM NPU% MBW%  ')
         host_offset = max(self.host_offset, 0)
         command_offset = max(14 + len(self.host_headers[-2]) - host_offset, 0)
         if command_offset > 0:

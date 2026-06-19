@@ -24,9 +24,7 @@ from nvitop.tui.library import (
     HistoryGraph,
     Selection,
     WideString,
-    bytes2human,
     cut_string,
-    host,
     wcslen,
 )
 from nvitop.tui.screens.base import BaseSelectableScreen
@@ -34,6 +32,7 @@ from nvitop.tui.screens.base import BaseSelectableScreen
 
 if TYPE_CHECKING:
     import curses
+    from collections.abc import Callable
 
     from nvitop.tui.tui import TUI
 
@@ -100,10 +99,10 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
         super().__init__(win, root)
 
         self.selection: Selection = Selection(self)
-        self.used_gpu_memory: HistoryGraph | None = None
-        self.gpu_sm_utilization: HistoryGraph | None = None
-        self.cpu_percent: HistoryGraph | None = None
-        self.used_host_memory: HistoryGraph | None = None
+        self.npu_utilization: HistoryGraph | None = None
+        self.ai_core_utilization: HistoryGraph | None = None
+        self.vector_core_utilization: HistoryGraph | None = None
+        self.memory_bandwidth_utilization: HistoryGraph | None = None
 
         self.enabled: bool = False
         self.snapshot_lock = threading.Lock()
@@ -145,69 +144,36 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
             self.disable()
             return
 
-        total_host_memory = host.virtual_memory().total
-        total_host_memory_human = bytes2human(total_host_memory)
-        total_gpu_memory = self.process.device.memory_total()
-        total_gpu_memory_human = bytes2human(total_gpu_memory)
+        def format_percent(label: str) -> Callable[[float], str]:
+            def formatter(value: float) -> str:
+                if value is NA:  # type: ignore[comparison-overlap]
+                    return f'{label}: {value}'  # type: ignore[unreachable]
+                return f'{label}: {value:.1f}%'
 
-        def format_cpu_percent(value: float) -> str:
+            return formatter
+
+        def format_max_percent(label: str) -> Callable[[float], str]:
+            def formatter(value: float) -> str:
+                if value is NA:  # type: ignore[comparison-overlap]
+                    return f'MAX {label}: {value}'  # type: ignore[unreachable]
+                return f'MAX {label}: {value:.1f}%'
+
+            return formatter
+
+        def format_npu(value: float) -> str:
             if value is NA:  # type: ignore[comparison-overlap]
-                return f'CPU: {value}'  # type: ignore[unreachable]
-            return f'CPU: {value:.1f}%'
+                return f'NPU: {value}'  # type: ignore[unreachable]
+            return f'NPU: {value:.1f}%'
 
-        def format_max_cpu_percent(value: float) -> str:
+        def format_max_npu(value: float) -> str:
             if value is NA:  # type: ignore[comparison-overlap]
-                return f'MAX CPU: {value}'  # type: ignore[unreachable]
-            return f'MAX CPU: {value:.1f}%'
-
-        def format_host_memory(value: float) -> str:
-            if value is NA:  # type: ignore[comparison-overlap]
-                return f'HOST-MEM: {value}'  # type: ignore[unreachable]
-            return (
-                f'HOST-MEM: {bytes2human(value)} '
-                f'({round(100.0 * value / total_host_memory, 1):.1f}%)'
-            )
-
-        def format_max_host_memory(value: float) -> str:
-            if value is NA:  # type: ignore[comparison-overlap]
-                return f'MAX HOST-MEM: {value}'  # type: ignore[unreachable]
-            return (
-                f'MAX HOST-MEM: {bytes2human(value)} '
-                f'({round(100.0 * value / total_host_memory, 1):.1f}%) '
-                f'/ {total_host_memory_human}'
-            )
-
-        def format_gpu_memory(value: float) -> str:
-            if value is not NA and total_gpu_memory is not NA:  # type: ignore[comparison-overlap]
-                return (
-                    f'GPU-MEM: {bytes2human(value)} '
-                    f'({round(100.0 * value / total_gpu_memory, 1):.1f}%)'
-                )
-            return f'GPU-MEM: {value}'
-
-        def format_max_gpu_memory(value: float) -> str:
-            if value is not NA and total_gpu_memory is not NA:  # type: ignore[comparison-overlap]
-                return (
-                    f'MAX GPU-MEM: {bytes2human(value)} '
-                    f'({round(100.0 * value / total_gpu_memory, 1):.1f}%) '
-                    f'/ {total_gpu_memory_human}'
-                )
-            return f'MAX GPU-MEM: {value}'
-
-        def format_sm(value: float) -> str:
-            if value is NA:  # type: ignore[comparison-overlap]
-                return f'GPU-SM: {value}'  # type: ignore[unreachable]
-            return f'GPU-SM: {value:.1f}%'
-
-        def format_max_sm(value: float) -> str:
-            if value is NA:  # type: ignore[comparison-overlap]
-                return f'MAX GPU-SM: {value}'  # type: ignore[unreachable]
-            return f'MAX GPU-SM: {value:.1f}%'
+                return f'MAX NPU: {value}'  # type: ignore[unreachable]
+            return f'MAX NPU: {value:.1f}%'
 
         with self.snapshot_lock:
-            self.cpu_percent = BufferedHistoryGraph(
+            self.npu_utilization = BufferedHistoryGraph(
                 interval=1.0,
-                upperbound=1000.0,
+                upperbound=100.0,
                 width=self.left_width,
                 height=self.upper_height,
                 baseline=0.0,
@@ -215,32 +181,36 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
                 dynamic_bound=True,
                 min_bound=10.0,
                 init_bound=100.0,
-                format=format_cpu_percent,
-                max_format=format_max_cpu_percent,
+                format=format_npu,
+                max_format=format_max_npu,
             )
-            self.used_host_memory = BufferedHistoryGraph(
+            self.ai_core_utilization = BufferedHistoryGraph(
                 interval=1.0,
-                upperbound=total_host_memory,
+                upperbound=100.0,
                 width=self.left_width,
                 height=self.lower_height,
                 baseline=0.0,
                 upsidedown=True,
                 dynamic_bound=True,
-                format=format_host_memory,
-                max_format=format_max_host_memory,
+                min_bound=10.0,
+                init_bound=100.0,
+                format=format_percent('CUBE'),
+                max_format=format_max_percent('CUBE'),
             )
-            self.used_gpu_memory = BufferedHistoryGraph(
+            self.vector_core_utilization = BufferedHistoryGraph(
                 interval=1.0,
-                upperbound=total_gpu_memory or 1.0,  # type: ignore[arg-type]
+                upperbound=100.0,
                 width=self.right_width,
                 height=self.upper_height,
                 baseline=0.0,
                 upsidedown=False,
                 dynamic_bound=True,
-                format=format_gpu_memory,
-                max_format=format_max_gpu_memory,
+                min_bound=10.0,
+                init_bound=100.0,
+                format=format_percent('VEC'),
+                max_format=format_max_percent('VEC'),
             )
-            self.gpu_sm_utilization = BufferedHistoryGraph(
+            self.memory_bandwidth_utilization = BufferedHistoryGraph(
                 interval=1.0,
                 upperbound=100.0,
                 width=self.right_width,
@@ -248,13 +218,15 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
                 baseline=0.0,
                 upsidedown=True,
                 dynamic_bound=True,
-                format=format_sm,
-                max_format=format_max_sm,
+                min_bound=10.0,
+                init_bound=100.0,
+                format=format_percent('MBW'),
+                max_format=format_max_percent('MBW'),
             )
-            self.cpu_percent.scale = 0.1  # type: ignore[attr-defined]
-            self.used_host_memory.scale = 1.0  # type: ignore[attr-defined]
-            self.used_gpu_memory.scale = 1.0  # type: ignore[attr-defined]
-            self.gpu_sm_utilization.scale = 1.0  # type: ignore[attr-defined]
+            self.npu_utilization.scale = 1.0  # type: ignore[attr-defined]
+            self.ai_core_utilization.scale = 1.0  # type: ignore[attr-defined]
+            self.vector_core_utilization.scale = 1.0  # type: ignore[attr-defined]
+            self.memory_bandwidth_utilization.scale = 1.0  # type: ignore[attr-defined]
 
             self._daemon_running.set()
             try:
@@ -270,10 +242,10 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
         with self.snapshot_lock:
             self._daemon_running.clear()
             self.enabled = False
-            self.cpu_percent = None
-            self.used_host_memory = None
-            self.used_gpu_memory = None
-            self.gpu_sm_utilization = None
+            self.npu_utilization = None
+            self.ai_core_utilization = None
+            self.vector_core_utilization = None
+            self.memory_bandwidth_utilization = None
 
     @property
     def process(self) -> GpuProcess:
@@ -297,18 +269,18 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
                 return
 
             with GpuProcess.failsafe():
-                self.process.device.as_snapshot()
+                device_snapshot = self.process.device.as_snapshot()
                 self.process.update_gpu_status()
-                snapshot = self.process.as_snapshot()
+                self.process.as_snapshot()
 
-                assert self.cpu_percent is not None
-                assert self.used_host_memory is not None
-                assert self.used_gpu_memory is not None
-                assert self.gpu_sm_utilization is not None
-                self.cpu_percent.add(snapshot.cpu_percent)
-                self.used_host_memory.add(snapshot.host_memory)
-                self.used_gpu_memory.add(snapshot.gpu_memory)
-                self.gpu_sm_utilization.add(snapshot.gpu_sm_utilization)
+                assert self.npu_utilization is not None
+                assert self.ai_core_utilization is not None
+                assert self.vector_core_utilization is not None
+                assert self.memory_bandwidth_utilization is not None
+                self.npu_utilization.add(device_snapshot.npu_utilization)
+                self.ai_core_utilization.add(device_snapshot.ai_core_utilization)
+                self.vector_core_utilization.add(device_snapshot.vector_core_utilization)
+                self.memory_bandwidth_utilization.add(device_snapshot.memory_utilization)
 
     def _snapshot_target(self) -> None:
         while True:
@@ -329,14 +301,17 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
 
         with self.snapshot_lock:
             if self.enabled:
-                assert self.cpu_percent is not None
-                assert self.used_host_memory is not None
-                assert self.used_gpu_memory is not None
-                assert self.gpu_sm_utilization is not None
-                self.cpu_percent.graph_size = (self.left_width, self.upper_height)
-                self.used_host_memory.graph_size = (self.left_width, self.lower_height)
-                self.used_gpu_memory.graph_size = (self.right_width, self.upper_height)
-                self.gpu_sm_utilization.graph_size = (self.right_width, self.lower_height)
+                assert self.npu_utilization is not None
+                assert self.ai_core_utilization is not None
+                assert self.vector_core_utilization is not None
+                assert self.memory_bandwidth_utilization is not None
+                self.npu_utilization.graph_size = (self.left_width, self.upper_height)
+                self.ai_core_utilization.graph_size = (self.left_width, self.lower_height)
+                self.vector_core_utilization.graph_size = (self.right_width, self.upper_height)
+                self.memory_bandwidth_utilization.graph_size = (
+                    self.right_width,
+                    self.lower_height,
+                )
 
         return termsize
 
@@ -345,7 +320,7 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
         return [
             '╒' + '═' * (self.width - 2) + '╕',
             '│ {} │'.format('Process:'.ljust(self.width - 4)),
-            '│ {} │'.format('GPU'.ljust(self.width - 4)),
+            '│ {} │'.format('NPU'.ljust(self.width - 4)),
             '╞' + '═' * (self.width - 2) + '╡',
             '│' + ' ' * (self.width - 2) + '│',
             '╞' + '═' * self.left_width + '╤' + '═' * self.right_width + '╡',
@@ -369,10 +344,10 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
     def draw(self) -> None:  # pylint: disable=too-many-statements,too-many-locals,too-many-branches
         self.color_reset()
 
-        assert self.used_gpu_memory is not None
-        assert self.gpu_sm_utilization is not None
-        assert self.cpu_percent is not None
-        assert self.used_host_memory is not None
+        assert self.npu_utilization is not None
+        assert self.ai_core_utilization is not None
+        assert self.vector_core_utilization is not None
+        assert self.memory_bandwidth_utilization is not None
 
         if self.need_redraw:
             for y, line in enumerate(self.frame_lines(), start=self.y):
@@ -425,28 +400,38 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
 
         with self.snapshot_lock:
             process = self.process.snapshot
-            columns = OrderedDict(
+            device = self.process.device.snapshot
+
+            def value_of(value: object) -> str:
+                return str(NA if value is None else value)
+
+            def rjust_value(value: object, width: int) -> str:
+                return value_of(value).rjust(width)
+
+            columns: OrderedDict[str, str | WideString] = OrderedDict(
                 [
-                    (' GPU', self.process.device.display_index.rjust(4)),
-                    ('PID  ', f'{str(process.pid).rjust(3)} {process.type}'),
+                    (' NPU', self.process.device.display_index.rjust(4)),
+                    ('PID  ', f'{str(process.pid).rjust(3)} {value_of(process.type)}'),
                     (
                         'USER',
                         WideString(
                             cut_string(
-                                WideString(process.username).rjust(4),
+                                WideString(value_of(process.username)).rjust(4),
                                 maxlen=32,
                                 padstr='+',
                             ),
                         ),
                     ),
-                    (' GPU-MEM', process.gpu_memory_human.rjust(8)),
-                    (' %SM', str(process.gpu_sm_utilization).rjust(4)),
-                    ('%GMBW', str(process.gpu_memory_utilization).rjust(5)),
-                    ('%ENC', str(process.gpu_encoder_utilization).rjust(4)),
-                    ('%DEC', str(process.gpu_encoder_utilization).rjust(4)),
-                    ('  %CPU', process.cpu_percent_string.rjust(6)),
-                    (' %MEM', process.memory_percent_string.rjust(5)),
-                    (' TIME', (' ' + process.running_time_human).rjust(5)),
+                    (' NPU-MEM', rjust_value(process.gpu_memory_human, 8)),
+                    ('NPU%', rjust_value(device.npu_utilization_string, 5)),
+                    ('CUBE%', rjust_value(device.ai_core_utilization_string, 5)),
+                    ('VEC%', rjust_value(device.vector_core_utilization_string, 5)),
+                    ('AICPU%', rjust_value(device.ai_cpu_utilization_string, 5)),
+                    ('CTRL%', rjust_value(device.control_cpu_utilization_string, 5)),
+                    ('MBW%', rjust_value(device.memory_utilization_string, 5)),
+                    ('  %CPU', rjust_value(process.cpu_percent_string, 6)),
+                    (' %MEM', rjust_value(process.memory_percent_string, 5)),
+                    (' TIME', rjust_value(process.running_time_human, 5)),
                 ],
             )
 
@@ -454,7 +439,8 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
             header = ''
             fields = WideString()
             no_break = True
-            for i, (col, value) in enumerate(columns.items()):
+            for i, (col, raw_value) in enumerate(columns.items()):
+                value = WideString(raw_value)
                 width = len(value)
                 if x + width < self.width - 2:
                     if i == 0:
@@ -462,7 +448,7 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
                         fields += value
                     else:
                         header += ' ' + col.rjust(width)
-                        fields += ' ' + value
+                        fields += WideString(' ') + value
                     x = self.x + 1 + len(fields)
                 else:
                     no_break = False
@@ -495,29 +481,29 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
                         self.y + 4,
                         x,
                         cut_string(
-                            WideString(process.command).ljust(self.width - x - 2),
+                            WideString(value_of(process.command)).ljust(self.width - x - 2),
                             self.width - x - 2,
                             padstr='..',
                         ),
                     )
 
             self.color(fg='cyan')
-            for y, line in enumerate(self.cpu_percent.graph, start=self.y + 6):
+            for y, line in enumerate(self.npu_utilization.graph, start=self.y + 6):
                 self.addstr(y, self.x + 1, line)
 
             self.color(fg='magenta')
             for y, line in enumerate(
-                self.used_host_memory.graph,
+                self.ai_core_utilization.graph,
                 start=self.y + self.upper_height + 7,
             ):
                 self.addstr(y, self.x + 1, line)
 
             if self.TERM_256COLOR:
-                scale = (self.used_gpu_memory.bound / self.used_gpu_memory.max_bound) / (
-                    self.upper_height - 1
-                )
+                scale = (
+                    self.vector_core_utilization.bound / self.vector_core_utilization.max_bound
+                ) / (self.upper_height - 1)
                 for i, (y, line) in enumerate(
-                    enumerate(self.used_gpu_memory.graph, start=self.y + 6),
+                    enumerate(self.vector_core_utilization.graph, start=self.y + 6),
                 ):
                     self.addstr(
                         y,
@@ -526,11 +512,15 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
                         self.get_fg_bg_attr(fg=(self.upper_height - i - 1) * scale),
                     )
 
-                scale = (self.gpu_sm_utilization.bound / self.gpu_sm_utilization.max_bound) / (
-                    self.lower_height - 1
-                )
+                scale = (
+                    self.memory_bandwidth_utilization.bound
+                    / self.memory_bandwidth_utilization.max_bound
+                ) / (self.lower_height - 1)
                 for i, (y, line) in enumerate(
-                    enumerate(self.gpu_sm_utilization.graph, start=self.y + self.upper_height + 7),
+                    enumerate(
+                        self.memory_bandwidth_utilization.graph,
+                        start=self.y + self.upper_height + 7,
+                    ),
                 ):
                     self.addstr(
                         y,
@@ -540,30 +530,30 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
                     )
             else:
                 self.color(fg=self.process.device.snapshot.memory_display_color)
-                for y, line in enumerate(self.used_gpu_memory.graph, start=self.y + 6):
+                for y, line in enumerate(self.vector_core_utilization.graph, start=self.y + 6):
                     self.addstr(y, self.x + self.left_width + 2, line)
 
                 self.color(fg=self.process.device.snapshot.gpu_display_color)
                 for y, line in enumerate(
-                    self.gpu_sm_utilization.graph,
+                    self.memory_bandwidth_utilization.graph,
                     start=self.y + self.upper_height + 7,
                 ):
                     self.addstr(y, self.x + self.left_width + 2, line)
 
             self.color_reset()
-            self.addstr(self.y + 6, self.x + 1, f' {self.cpu_percent.max_value_string()} ')
-            self.addstr(self.y + 7, self.x + 5, f' {self.cpu_percent} ')
+            self.addstr(self.y + 6, self.x + 1, f' {self.npu_utilization.max_value_string()} ')
+            self.addstr(self.y + 7, self.x + 5, f' {self.npu_utilization} ')
             self.addstr(
                 self.y + self.upper_height + self.lower_height + 5,
                 self.x + 5,
-                f' {self.used_host_memory} ',
+                f' {self.ai_core_utilization} ',
             )
             self.addstr(
                 self.y + self.upper_height + self.lower_height + 6,
                 self.x + 1,
                 ' {} '.format(
                     cut_string(
-                        self.used_host_memory.max_value_string(),
+                        self.ai_core_utilization.max_value_string(),
                         maxlen=self.left_width - 2,
                         padstr='..',
                     ),
@@ -574,22 +564,26 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
                 self.x + self.left_width + 2,
                 ' {} '.format(
                     cut_string(
-                        self.used_gpu_memory.max_value_string(),
+                        self.vector_core_utilization.max_value_string(),
                         maxlen=self.right_width - 2,
                         padstr='..',
                     ),
                 ),
             )
-            self.addstr(self.y + 7, self.x + self.left_width + 6, f' {self.used_gpu_memory} ')
+            self.addstr(
+                self.y + 7,
+                self.x + self.left_width + 6,
+                f' {self.vector_core_utilization} ',
+            )
             self.addstr(
                 self.y + self.upper_height + self.lower_height + 5,
                 self.x + self.left_width + 6,
-                f' {self.gpu_sm_utilization} ',
+                f' {self.memory_bandwidth_utilization} ',
             )
             self.addstr(
                 self.y + self.upper_height + self.lower_height + 6,
                 self.x + self.left_width + 2,
-                f' {self.gpu_sm_utilization.max_value_string()} ',
+                f' {self.memory_bandwidth_utilization.max_value_string()} ',
             )
 
             for y in range(self.y + 6, self.y + 6 + self.upper_height):
@@ -604,15 +598,18 @@ class ProcessMetricsScreen(BaseSelectableScreen):  # pylint: disable=too-many-in
 
             self.color(attr='dim')
             for y, p in itertools.chain(
-                get_yticks(self.cpu_percent, self.y + 6),
-                get_yticks(self.used_host_memory, self.y + self.upper_height + 7),
+                get_yticks(self.npu_utilization, self.y + 6),
+                get_yticks(self.ai_core_utilization, self.y + self.upper_height + 7),
             ):
                 self.addstr(y, self.x, f'├╴{p}% ')
                 self.color_at(y, self.x, width=2, attr=0)
             x = self.x + self.left_width + 1
             for y, p in itertools.chain(
-                get_yticks(self.used_gpu_memory, self.y + 6),
-                get_yticks(self.gpu_sm_utilization, self.y + self.upper_height + 7),
+                get_yticks(self.vector_core_utilization, self.y + 6),
+                get_yticks(
+                    self.memory_bandwidth_utilization,
+                    self.y + self.upper_height + 7,
+                ),
             ):
                 self.addstr(y, x, f'├╴{p}% ')
                 self.color_at(y, x, width=2, attr=0)

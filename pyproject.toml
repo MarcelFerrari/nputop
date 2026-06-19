@@ -1,21 +1,19 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nvitop"
-description = "An interactive NVIDIA-GPU process viewer and beyond, the one-stop solution for GPU process management."
+name = "nputop"
+description = "An interactive Huawei Ascend NPU process viewer based on nvitop."
 readme = "README.md"
 requires-python = ">= 3.8"
 authors = [{ name = "Xuehai Pan", email = "XuehaiPan@pku.edu.cn" }]
 license = { text = "Apache-2.0 AND GPL-3.0-only" }
 keywords = [
-    "nvidia",
-    "nvidia-smi",
-    "NVIDIA",
-    "NVML",
-    "CUDA",
-    "GPU",
+    "huawei",
+    "ascend",
+    "DCMI",
+    "NPU",
     "top",
     "monitoring",
 ]
@@ -33,8 +31,6 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
-    "Environment :: GPU",
-    "Environment :: GPU :: NVIDIA CUDA",
     "Environment :: Console",
     "Environment :: Console :: Curses",
     "Intended Audience :: Developers",
@@ -46,8 +42,7 @@ classifiers = [
     "Topic :: Utilities",
 ]
 dependencies = [
-    # Sync with nvitop/version.py and requirements.txt
-    "nvidia-ml-py >= 11.450.51, < 13.596.0a0",
+    # Sync with requirements.txt
     "psutil >= 5.6.6",
     "colorama >= 0.4.0; platform_system == 'Windows'",
     "windows-curses >= 2.2.0; platform_system == 'Windows'",
@@ -55,8 +50,7 @@ dependencies = [
 dynamic = ["version", "optional-dependencies"]
 
 [project.scripts]
-nvitop = "nvitop.cli:main"
-nvisel = "nvitop.select:main"
+nputop = "nvitop.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/XuehaiPan/nvitop"
@@ -68,8 +62,8 @@ Documentation = "https://nvitop.readthedocs.io"
 include = ["nvitop", "nvitop.*"]
 
 [tool.mypy]
-# Sync with requires-python
-python_version = "3.8"
+# mypy 2.x no longer supports a Python 3.8 analysis target.
+python_version = "3.10"
 mypy_path = [".", "nvitop-exporter"]
 exclude = ["nvitop-exporter/setup.py"]
 pretty = true
@@ -94,15 +88,17 @@ no_site_packages = true
 
 [tool.pylint]
 main.py-version = "3.8"
+main.persistent = false
 basic.good-names = ["x", "y", "dx", "dy", "p", "s", "fg", "bg", "n", "ui", "tx", "rx"]
 format.max-line-length = 120
 messages-control.disable = [
+    "assignment-from-no-return",
     "consider-using-f-string",
     "duplicate-code",
+    "import-error",
+    "no-name-in-module",
     "wrong-import-order",
 ]
-spelling.spelling-dict = "en_US"
-spelling.spelling-private-dict-file = "docs/source/spelling_wordlist.txt"
 
 [tool.codespell]
 builtin = "clear,rare,en-GB_to_en-US"
@@ -187,7 +183,12 @@ ignore = [
 "setup.py" = [
     "D",       # pydocstyle
 ]
+"nvitop/api/device.py" = [
+    "D",       # API compatibility surface has many tiny NVML-style accessors.
+]
 "nvitop/api/lib*.py" = [
+    "D102",    # public ctypes wrapper accessors are intentionally one-line shims
+    "D107",    # local exception constructors are self-evident
     "N",       # pep8-naming
 ]
 "nvitop/tui/**/*.py" = [

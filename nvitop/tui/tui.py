@@ -185,7 +185,7 @@ class TUI(DisplayableContainer[Union[BaseScreen, MessageBox]]):  # pylint: disab
         assert self.termsize is not None
         n_term_lines, n_term_cols = self.termsize
         message = (
-            f'nvitop needs at least a width of 79 to render, the current width is {self.width}.'
+            f'nputop needs at least a width of 79 to render, the current width is {self.width}.'
         )
         words = iter(message.split())
         width = min(max(n_term_cols, 40), n_term_cols, 60) - 10
